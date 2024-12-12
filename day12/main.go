@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -47,6 +48,52 @@ func calc_perimeter(plot map[Pair]bool) int {
 	return perimeter
 }
 
+func calc_perimeter_with_discount(plot map[Pair]bool) int {
+	p := make(map[string][]int)
+
+	for item := range plot {
+		neighbours := find_neighbours(item)
+		for direction, neighbour := range neighbours {
+			if !plot[neighbour] {
+				if direction == 0 {
+					k := "R" + string(item.X)
+					p[k] = append(p[k], item.Y)
+				}
+
+				if direction == 1 {
+					k := "L" + string(item.X)
+					p[k] = append(p[k], item.Y)
+				}
+
+				if direction == 2 {
+					k := "T" + string(item.Y)
+					p[k] = append(p[k], item.X)
+				}
+
+				if direction == 3 {
+					k := "B" + string(item.Y)
+					p[k] = append(p[k], item.X)
+				}
+			}
+		}
+	}
+
+	perimeter := 0
+
+	for _, value := range p {
+		sort.Ints(value)
+		last_edge := -2
+		for _, edge := range value {
+			if last_edge != edge-1 {
+				perimeter += 1
+			}
+			last_edge = edge
+		}
+	}
+
+	return perimeter
+}
+
 func find_plot(m map[Pair]rune, size Pair, starting_point Pair) map[Pair]bool {
 	visited := make(map[Pair]bool)
 	plot_kind := m[starting_point]
@@ -71,7 +118,9 @@ func find_plot(m map[Pair]rune, size Pair, starting_point Pair) map[Pair]bool {
 	return visited
 }
 
-func sum_map(m map[Pair]rune, size Pair) int {
+type perimeter_fn func(plot map[Pair]bool) int
+
+func sum_map(m map[Pair]rune, size Pair, calc perimeter_fn) int {
 	visited := make(map[Pair]bool)
 	price := 0
 
@@ -82,8 +131,8 @@ func sum_map(m map[Pair]rune, size Pair) int {
 				plot := find_plot(m, size, starting_point)
 
 				// Increase price
-				fmt.Print(len(plot), calc_perimeter(plot), starting_point, string(m[starting_point]), "\n")
-				price += len(plot) * calc_perimeter(plot)
+				// fmt.Print(len(plot), calc(plot), starting_point, string(m[starting_point]), "\n")
+				price += len(plot) * calc(plot)
 
 				// Mark the whole plot as visited
 				for v := range plot {
@@ -113,6 +162,6 @@ func main() {
 		}
 	}
 
-	fmt.Print("part 1 - ", sum_map(m, size), "\n")
-	// fmt.Print("part 2 - ", , "\n")
+	fmt.Print("part 1 - ", sum_map(m, size, calc_perimeter), "\n")
+	fmt.Print("part 2 - ", sum_map(m, size, calc_perimeter_with_discount), "\n")
 }
