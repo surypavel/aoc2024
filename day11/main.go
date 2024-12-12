@@ -20,22 +20,22 @@ func to_int(s string) int {
 	return num
 }
 
-func expand(items []string, number int) []string {
+func expand(items map[string]int, number int) map[string]int {
 	if number == 0 {
 		return items
 	}
 
-	new_items := make([]string, 0)
+	new_items := make(map[string]int)
 
-	for _, item := range items {
+	for item, qty := range items {
 		if item == "0" {
-			new_items = append(new_items, "1")
+			new_items["1"] += qty
 		} else if len(item)%2 == 0 {
 			mid := len(item) / 2
-			new_items = append(new_items, item[:mid])
-			new_items = append(new_items, trim_zeroes(item[mid:]))
+			new_items[item[:mid]] += qty
+			new_items[trim_zeroes(item[mid:])] += qty
 		} else {
-			new_items = append(new_items, trim_zeroes(strconv.Itoa(to_int(item)*2024)))
+			new_items[trim_zeroes(strconv.Itoa(to_int(item)*2024))] += qty
 		}
 	}
 
@@ -47,11 +47,28 @@ func trim_zeroes(input string) string {
 	return r.FindStringSubmatch(input)[1]
 }
 
+func create_map(items []string) map[string]int {
+	m := make(map[string]int)
+	for _, item := range items {
+		m[item] = 1
+	}
+	return m
+}
+
+func sum_map(m map[string]int) int {
+	sum := 0
+	for _, count := range m {
+		sum += count
+	}
+	return sum
+}
+
 func main() {
 	input, err := os.ReadFile("input.txt")
 	check(err)
 
 	items := strings.Split(string(input), " ")
 
-	fmt.Print("part 1 - ", len(expand(items, 40)), "\n")
+	fmt.Print("part 1 - ", sum_map(expand(create_map(items), 25)), "\n")
+	fmt.Print("part 2 - ", sum_map(expand(create_map(items), 75)), "\n")
 }
