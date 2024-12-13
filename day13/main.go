@@ -54,46 +54,23 @@ func parse_input(input []byte) []Machine {
 	return machines
 }
 
-func find_m(n int, primary_pair Pair, secondary_pair Pair, prize Pair) int {
-	is_not_too_big := primary_pair.X*n <= prize.X && primary_pair.Y*n <= prize.Y
-	is_divisible := (prize.X-primary_pair.X*n)%secondary_pair.X == 0 && (prize.Y-primary_pair.Y*n)%secondary_pair.Y == 0
-	is_equal_part := (prize.Y-primary_pair.Y*n)/secondary_pair.Y == (prize.X-primary_pair.X*n)/secondary_pair.X
+// This is working only if the resulting matrix is singular but it is always the case
+func calc_solution(m Machine) (int, int) {
+	// m.A.X + m.B.X = m.Price.X
+	// m.A.Y + m.B.Y = m.Price.Y
+	// (A.X B.X) (Price.X)
+	// (A.Y B.Y) (Price.Y)
+	// Calculate using cramer's rule
 
-	if is_not_too_big && is_divisible && is_equal_part {
-		return (prize.Y - primary_pair.Y*n) / secondary_pair.Y
+	det := (m.A.X*m.B.Y - m.A.Y*m.B.X)
+	x1 := (m.Prize.X*m.B.Y - m.Prize.Y*m.B.X)
+	x2 := (m.A.X*m.Prize.Y - m.A.Y*m.Prize.X)
+
+	if x1%det == 0 && x2%det == 0 {
+		return x1 / det, x2 / det
 	}
 
-	return -1
-}
-
-func determine_n(primary_pair Pair, secondary_pair Pair, prize Pair) (int, int) {
-	for n := 100; n >= 0; n-- {
-		m := find_m(n, primary_pair, secondary_pair, prize)
-
-		if m != -1 {
-			return n, m
-		}
-	}
-
-	// No solution
 	return 0, 0
-}
-
-func calc_tokens(machine Machine) int {
-	sumA := machine.A.X + machine.A.Y
-	sumB := machine.B.X + machine.B.Y
-
-	// Pushing A costs 3 tokens
-	// That means, pushing B is more effective unless it has too little impact
-	shouldPushB := sumB < 3*sumA
-
-	if shouldPushB {
-		b, a := determine_n(machine.B, machine.A, machine.Prize)
-		return b + 3*a
-	} else {
-		a, b := determine_n(machine.A, machine.B, machine.Prize)
-		return b + 3*a
-	}
 }
 
 func main() {
@@ -104,8 +81,19 @@ func main() {
 
 	sum_1 := 0
 	for _, machine := range machines {
-		sum_1 += calc_tokens(machine)
+		x1, x2 := calc_solution(machine)
+		sum_1 += 3*x1 + x2
 	}
 
 	fmt.Print("part 1 - ", sum_1, "\n")
+
+	offset := 10000000000000
+	sum_2 := 0
+	for _, machine := range machines {
+		x1, x2 := calc_solution(Machine{A: machine.A, B: machine.B, Prize: Pair{X: machine.Prize.X + offset, Y: machine.Prize.Y + offset}})
+		sum_2 += 3*x1 + x2
+	}
+
+	fmt.Print("part 2 - ", sum_2, "\n")
+
 }
