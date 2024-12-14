@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"regexp"
@@ -80,8 +79,13 @@ func part1(robots []Robot, size Pair) int {
 	return product
 }
 
-func render(robots []Robot, size Pair) {
+func is_treelike(s string) bool {
+	return strings.Contains(s, "#########")
+}
+
+func render(robots []Robot, size Pair) string {
 	m := make(map[Pair]bool)
+	s := ""
 
 	for _, robot := range robots {
 		m[robot.Pos] = true
@@ -91,13 +95,15 @@ func render(robots []Robot, size Pair) {
 		for y := 0; y < size.Y; y++ {
 			has_robot := m[Pair{X: x, Y: y}]
 			if has_robot {
-				fmt.Print("#")
+				s += "#"
 			} else {
-				fmt.Print(" ")
+				s += " "
 			}
 		}
-		fmt.Print("\n")
+		s += "\n"
 	}
+
+	return s
 }
 
 func main() {
@@ -109,16 +115,17 @@ func main() {
 
 	fmt.Print("part 1 - ", part1(robots, size), "\n")
 
-	// Very manual lookup, result 7520
-	frequency := 103
-	for i := 1; i < 100000; i += frequency {
-		moved_robots := make([]Robot, 5)
+	for i := 1; i < 100000; i++ {
+		moved_robots := make([]Robot, 0)
 		for _, robot := range robots {
 			moved_robots = append(moved_robots, move(robot, size, i))
 		}
 
-		render(moved_robots, size)
-		fmt.Print(i)
-		bufio.NewReader(os.Stdin).ReadBytes('\n')
+		image := render(moved_robots, size)
+		if is_treelike(image) {
+			fmt.Print("part 2 - ", i, "\n")
+			fmt.Print(image)
+			break
+		}
 	}
 }
