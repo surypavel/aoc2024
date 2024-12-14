@@ -91,8 +91,8 @@ func render(robots []Robot, size Pair) string {
 		m[robot.Pos] = true
 	}
 
-	for x := 0; x < size.X; x++ {
-		for y := 0; y < size.Y; y++ {
+	for y := 0; y < size.Y; y++ {
+		for x := 0; x < size.X; x++ {
 			has_robot := m[Pair{X: x, Y: y}]
 			if has_robot {
 				s += "#"
@@ -115,6 +115,7 @@ func main() {
 
 	fmt.Print("part 1 - ", part1(robots, size), "\n")
 
+	// Very slow
 	for i := 1; i < 100000; i++ {
 		moved_robots := make([]Robot, 0)
 		for _, robot := range robots {
