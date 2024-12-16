@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -23,6 +25,14 @@ func check(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+func append_if_missing[T comparable](a []T, b T) []T {
+	if !slices.Contains(a, b) {
+		return append(a, b)
+	}
+	return a
+
 }
 
 func to_direction(r rune) Pair {
@@ -84,53 +94,93 @@ func parse_map_2(input string) (map[Pair]rune, Pair) {
 	return items, current
 }
 
-func find_path_length(m *map[Pair]rune, c Pair, d Pair) int {
-	for i := 1; ; i++ {
-		obstacle := (*m)[add(c, mul(d, i))]
-
-		if obstacle == '#' {
-			return 0
-		}
-
-		if obstacle == rune(0) {
-			return i
-		}
-	}
-}
-
+// This could actually also work as mov_y if there was normal vector used
 func mov_x(m *map[Pair]rune, c Pair, d Pair) (Pair, []Pair) {
-	blockers := make([]Pair, 0)
+	boxes := make([]Pair, 0)
 	for i := 1; ; i++ {
 		coordinate := add(c, mul(d, i))
-		obstacle := (*m)[add(c, mul(d, i))]
+		obstacle := (*m)[coordinate]
 
 		if obstacle == '#' {
 			return c, []Pair{}
 		}
 
-		if obstacle == '[' || obstacle == ']' {
-			blockers = append(blockers, coordinate)
+		if obstacle == '[' || obstacle == ']' || obstacle == 'O' {
+			boxes = append(boxes, coordinate)
 		}
 
 		if obstacle == rune(0) {
-			return add(c, d), blockers
+			return add(c, d), boxes
 		}
 	}
 }
 
-func move(m *map[Pair]rune, c Pair, d Pair) Pair {
-	lookahead := find_path_length(m, c, d)
+func mov_y(m *map[Pair]rune, c Pair, d Pair) (Pair, []Pair) {
+	boxes := make([]Pair, 0)
 
-	// Wall blocking, do not move
-	if lookahead == 0 {
-		return c
+	pushed_offsets := make(map[int]bool)
+	pushed_offsets[0] = true
+
+	for i := 1; ; i++ {
+		if len(pushed_offsets) == 0 {
+			return add(c, d), boxes
+		}
+
+		pushed_offsets_copy := make([]int, 0)
+
+		for k := range pushed_offsets {
+			pushed_offsets_copy = append(pushed_offsets_copy, k)
+		}
+
+		for _, j := range pushed_offsets_copy {
+			coordinate := add(add(c, mul(d, i)), Pair{X: j, Y: 0})
+			obstacle := (*m)[coordinate]
+
+			if obstacle == '#' {
+				return c, []Pair{}
+			}
+
+			if obstacle == 'O' {
+				boxes = append_if_missing(boxes, coordinate)
+			}
+
+			if obstacle == '[' {
+				boxes = append_if_missing(boxes, coordinate)
+				boxes = append_if_missing(boxes, add(coordinate, Pair{X: 1, Y: 0}))
+				pushed_offsets[j+1] = true
+			}
+
+			if obstacle == ']' {
+				boxes = append_if_missing(boxes, coordinate)
+				boxes = append_if_missing(boxes, add(coordinate, Pair{X: -1, Y: 0}))
+				pushed_offsets[j-1] = true
+			}
+
+			if obstacle == rune(0) {
+				delete(pushed_offsets, j)
+			}
+		}
+	}
+}
+
+func move_and_update_map_2(m *map[Pair]rune, c Pair, d Pair) Pair {
+	var (
+		new_c Pair
+		boxes []Pair
+	)
+
+	if d.X != 0 {
+		new_c, boxes = mov_x(m, c, d)
+	} else {
+		new_c, boxes = mov_y(m, c, d)
 	}
 
-	if lookahead >= 2 {
-		(*m)[add(c, d)] = rune(0)
-		(*m)[add(c, mul(d, lookahead))] = 'O'
+	for _, box := range slices.Backward(boxes) {
+		(*m)[add(box, d)] = (*m)[box]
+		(*m)[box] = rune(0)
 	}
-	return add(c, d)
+
+	return new_c
 }
 
 func eval_map(m *map[Pair]rune, c rune) int {
@@ -158,7 +208,7 @@ func part1() int {
 		}
 
 		direction := to_direction(b)
-		c = move(&m, c, direction)
+		c = move_and_update_map_2(&m, c, direction)
 	}
 
 	return eval_map(&m, 'O')
@@ -173,19 +223,44 @@ func part2() int {
 	m, c := parse_map_2(input_parts[0])
 
 	for _, b := range input_parts[1] {
+		// print_map(&m, c)
+		// print(string(b))
+
 		// Some unprintable character there
 		if b == 10 {
 			continue
 		}
 
 		direction := to_direction(b)
-		c = move(&m, c, direction)
+		c = move_and_update_map_2(&m, c, direction)
 	}
 
 	return eval_map(&m, '[')
 }
 
+func print_map(m *map[Pair]rune, c Pair) {
+	input := bufio.NewScanner(os.Stdin)
+	input.Scan()
+
+	for y := 0; y < 12; y++ {
+		for x := 0; x < 24; x++ {
+
+			p := Pair{X: x, Y: y}
+
+			if c == p {
+				fmt.Print("@")
+			} else if (*m)[p] != rune(0) {
+				fmt.Print(string((*m)[p]))
+			} else {
+				fmt.Print(" ")
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+}
+
 func main() {
 	fmt.Print("part 1 - ", part1(), "\n")
-	// fmt.Print("part 2 - ", part2(), "\n")
+	fmt.Print("part 2 - ", part2(), "\n")
 }
