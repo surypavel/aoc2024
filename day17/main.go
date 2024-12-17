@@ -158,7 +158,7 @@ func main() {
 
 	fmt.Print("part 1 - ", arrayToString(output, ","), "\n")
 
-	for i := IntPow(8, 15); ; {
+	for i := IntPow(8, len(input)-1); ; {
 		test_register := Register{A: i, B: 0, C: 0}
 		output := run(code, test_register)
 
