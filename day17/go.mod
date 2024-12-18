@@ -1,3 +1,3 @@
-module aoc2024/day15
+module aoc2024/day17
 
 go 1.23.3
