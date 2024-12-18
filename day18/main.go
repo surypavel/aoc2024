@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -10,6 +11,22 @@ import (
 type Pair struct {
 	X int
 	Y int
+}
+
+func IntPow(n, m int) int {
+	if m == 0 {
+		return 1
+	}
+
+	if m == 1 {
+		return n
+	}
+
+	result := n
+	for i := 2; i <= m; i++ {
+		result *= n
+	}
+	return result
 }
 
 func add(a Pair, b Pair) Pair {
@@ -59,36 +76,55 @@ func dijkstra(obstacles map[Pair]bool, size Pair, start Pair, end Pair) int {
 		to_check = new_to_check
 	}
 
-	fmt.Print(eval)
-
 	return eval[end] - 1
 }
 
+func to_map(lines []string, bytes_fallen int) map[Pair]bool {
+	obstacles := make(map[Pair]bool)
+	for _, line := range lines[0:bytes_fallen] {
+		items := strings.Split(line, ",")
+		obstacles[Pair{X: to_int(items[0]), Y: to_int(items[1])}] = true
+	}
+	return obstacles
+}
+
 func main() {
+	// input, err := os.ReadFile("example.txt")
+	// size_int := 6
+	// buffer := 12
+
 	input, err := os.ReadFile("input.txt")
+	size_int := 70
+	buffer := 1024
+
+	size := Pair{X: size_int, Y: size_int}
+	start := Pair{X: 0, Y: 0}
+	end := Pair{X: size_int, Y: size_int}
+
 	check(err)
 
 	lines := strings.Split(string(input), "\n")
-	obstacles := make(map[Pair]bool)
 
-	// size := Pair{X: 6, Y: 6}
-	// start := Pair{X: 0, Y: 0}
-	// end := Pair{X: 6, Y: 6}
-	// bytes_fallen := 12
+	fmt.Print("part 1 - ", dijkstra(to_map(lines, buffer), size, start, end), "\n")
 
-	size := Pair{X: 70, Y: 70}
-	start := Pair{X: 0, Y: 0}
-	end := Pair{X: 70, Y: 70}
-	bytes_fallen := 1024
+	dijkstra(to_map(lines, buffer), size, start, end)
 
-	for i, line := range lines {
-		if i < bytes_fallen {
-			items := strings.Split(line, ",")
-			obstacles[Pair{X: to_int(items[0]), Y: to_int(items[1])}] = true
+	unreachable_offsets := make([]int, 0)
+
+	// 15 should be enough, would have to calculate approximate log2(len(lines)) to be exact
+	for i, offset := 1, len(lines)/2; i < 15; i++ {
+		route := dijkstra(to_map(lines, offset), size, start, end)
+		diff := (len(lines) / IntPow(2, i+1)) + 1
+
+		if route == -1 {
+			unreachable_offsets = append(unreachable_offsets, offset)
+			offset -= diff
+		} else {
+			offset += diff
 		}
 	}
 
-	fmt.Print("part 1 - ", dijkstra(obstacles, size, start, end), "\n")
-	fmt.Print("part 2 - ", 0, "\n")
+	first_unreachable := slices.Min(unreachable_offsets) - 1
 
+	fmt.Print("part 2 - ", lines[first_unreachable], "\n")
 }
