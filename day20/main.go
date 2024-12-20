@@ -13,6 +13,13 @@ type Pair struct {
 	Y int
 }
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func add(a Pair, b Pair) Pair {
 	return Pair{X: a.X + b.X, Y: a.Y + b.Y}
 }
@@ -32,14 +39,16 @@ func find_neighbours(coordinate Pair) []Pair {
 	return cs
 }
 
-func find_cheat_neighbours(coordinate Pair, eval map[Pair]int) []Pair {
+func find_cheat_neighbours(coordinate Pair, max_len int) []Pair {
 	m := make(map[Pair]bool)
-	for _, c1 := range find_neighbours(coordinate) {
-		if eval[c1] == 0 {
-			m[c1] = true
-			for _, c2 := range find_neighbours(c1) {
-				m[c2] = true
-			}
+
+	// Different lengths of cheats
+	for l := 0; l <= max_len; l++ {
+		for mov_x := -l; mov_x <= l; mov_x++ {
+			p1 := add(coordinate, Pair{X: mov_x, Y: l - abs(mov_x)})
+			p2 := add(coordinate, Pair{X: mov_x, Y: -(l - abs(mov_x))})
+			m[p1] = true
+			m[p2] = true
 		}
 	}
 
@@ -81,7 +90,7 @@ func count_best_cheats(eval map[Pair]int, end Pair) int {
 	curr_pos := end
 	for eval[curr_pos] > 0 {
 		// Find best cheats
-		cheat_neighbours := find_cheat_neighbours(curr_pos, eval)
+		cheat_neighbours := find_cheat_neighbours(curr_pos, 2)
 		for _, neighbour := range cheat_neighbours {
 			time_saved := eval[curr_pos] - eval[neighbour] - 2
 			if time_saved >= 100 && eval[neighbour] != 0 {
