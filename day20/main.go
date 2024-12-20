@@ -39,14 +39,14 @@ func find_neighbours(coordinate Pair) []Pair {
 	return cs
 }
 
-func find_cheat_neighbours(coordinate Pair, max_len int) []Pair {
+func coords_in_radius(radius int) []Pair {
 	m := make(map[Pair]bool)
 
 	// Different lengths of cheats
-	for l := 0; l <= max_len; l++ {
+	for l := 0; l <= radius; l++ {
 		for mov_x := -l; mov_x <= l; mov_x++ {
-			p1 := add(coordinate, Pair{X: mov_x, Y: l - abs(mov_x)})
-			p2 := add(coordinate, Pair{X: mov_x, Y: -(l - abs(mov_x))})
+			p1 := Pair{X: mov_x, Y: l - abs(mov_x)}
+			p2 := Pair{X: mov_x, Y: -(l - abs(mov_x))}
 			m[p1] = true
 			m[p2] = true
 		}
@@ -85,14 +85,15 @@ func find_eval(blocked map[Pair]bool, starting_vector Pair) map[Pair]int {
 	return eval
 }
 
-func count_best_cheats(eval map[Pair]int, end Pair) int {
+func count_best_cheats(eval map[Pair]int, end Pair, max_path int) int {
 	count := 0
 	curr_pos := end
 	for eval[curr_pos] > 0 {
 		// Find best cheats
-		cheat_neighbours := find_cheat_neighbours(curr_pos, 2)
-		for _, neighbour := range cheat_neighbours {
-			time_saved := eval[curr_pos] - eval[neighbour] - 2
+		coords := coords_in_radius(max_path)
+		for _, coord := range coords {
+			neighbour := add(curr_pos, coord)
+			time_saved := eval[curr_pos] - eval[neighbour] - abs(coord.X) - abs(coord.Y)
 			if time_saved >= 100 && eval[neighbour] != 0 {
 				count++
 			}
@@ -139,6 +140,6 @@ func main() {
 
 	eval := find_eval(walls, start)
 
-	// Subtract 1 (eval map is +1)
-	fmt.Print("part 1 - ", count_best_cheats(eval, end), "\n")
+	fmt.Print("part 1 - ", count_best_cheats(eval, end, 2), "\n")
+	fmt.Print("part 2 - ", count_best_cheats(eval, end, 20), "\n")
 }
