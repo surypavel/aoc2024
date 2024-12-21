@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+type CacheEntry struct {
+	n    int
+	line string
+}
+
 type Pair struct {
 	X int
 	Y int
@@ -16,6 +21,30 @@ type Move struct {
 	Diff Pair
 	CanY bool
 	CanX bool
+}
+
+var NUMERIC_KEYPAD = map[byte]Pair{
+	'7': {X: 1, Y: 1},
+	'8': {X: 2, Y: 1},
+	'9': {X: 3, Y: 1},
+	'4': {X: 1, Y: 2},
+	'5': {X: 2, Y: 2},
+	'6': {X: 3, Y: 2},
+	'1': {X: 1, Y: 3},
+	'2': {X: 2, Y: 3},
+	'3': {X: 3, Y: 3},
+	'!': {X: 1, Y: 4},
+	'0': {X: 2, Y: 4},
+	'A': {X: 3, Y: 4},
+}
+
+var DIRECTIONAL_KEYPAD = map[byte]Pair{
+	'!': {X: 1, Y: 1},
+	'^': {X: 2, Y: 1},
+	'A': {X: 3, Y: 1},
+	'<': {X: 1, Y: 2},
+	'v': {X: 2, Y: 2},
+	'>': {X: 3, Y: 2},
 }
 
 func check(e error) {
@@ -41,9 +70,43 @@ func abs(x int) int {
 	return x
 }
 
-func move_on_keypad(line string, keypad map[rune]Pair, start Pair) []Move {
-	current := start
-	moves := []Move{}
+func sgn_x(p Pair) string {
+	if p.X > 0 {
+		return ">"
+	} else {
+		return "<"
+	}
+}
+
+func sgn_y(p Pair) string {
+	if p.Y > 0 {
+		return "v"
+	} else {
+		return "^"
+	}
+}
+
+// This function is pretty much magic but it seems to determine the best route on the keyboard
+func combine(p Move) []byte {
+	p1 := strings.Repeat(sgn_x(p.Diff), abs(p.Diff.X))
+	p2 := strings.Repeat(sgn_y(p.Diff), abs(p.Diff.Y))
+	s1 := []byte(p1 + p2 + "A")
+	s2 := []byte(p2 + p1 + "A")
+
+	if !p.CanX {
+		return s2
+	} else if !p.CanY {
+		return s1
+	} else if p.Diff.X < 0 {
+		return s1
+	} else {
+		return s2
+	}
+}
+
+func move_on_keypad(line []byte, keypad map[byte]Pair) [][]byte {
+	current := keypad['A']
+	moves := [][]byte{}
 	for _, item := range line {
 		x := current.X - keypad[item].X
 		y := current.Y - keypad[item].Y
@@ -52,104 +115,54 @@ func move_on_keypad(line string, keypad map[rune]Pair, start Pair) []Move {
 		x_first := add(current, Pair{X: -x, Y: 0})
 		y_first := add(current, Pair{X: 0, Y: -y})
 
-		moves = append(moves, Move{Diff: diff, CanX: keypad['!'] != x_first, CanY: keypad['!'] != y_first})
+		moves = append(moves, combine(Move{
+			Diff: diff,
+			CanX: keypad['!'] != x_first,
+			CanY: keypad['!'] != y_first,
+		}))
+
 		current = add(current, diff)
 	}
 	return moves
 }
 
-func to_directions(directions []Move) string {
-	results := []byte{}
-	for _, direction := range directions {
-		results = append(results, combine(direction)...)
-	}
-	return string(results)
-}
-
-func combine(p Move) string {
-	x_sign := ""
-	y_sign := ""
-
-	if p.Diff.X > 0 {
-		x_sign = ">"
-	}
-	if p.Diff.X < 0 {
-		x_sign = "<"
-	}
-	if p.Diff.Y > 0 {
-		y_sign = "v"
-	}
-	if p.Diff.Y < 0 {
-		y_sign = "^"
-	}
-
-	s1 := strings.Repeat(x_sign, abs(p.Diff.X)) + strings.Repeat(y_sign, abs(p.Diff.Y)) + "A"
-	s2 := strings.Repeat(y_sign, abs(p.Diff.Y)) + strings.Repeat(x_sign, abs(p.Diff.X)) + "A"
-
-	if !p.CanX {
-		return s2
-	}
-
-	if !p.CanY {
-		return s1
-	}
-
-	if s1 != s2 {
-		if p.Diff.X < 0 {
-			return s1
-		}
-
-		if p.Diff.Y < 0 {
-			return s2
-		}
-
-		return s2
-	}
-	return s1
-}
-
-func recursive_move_on_keypad(line string, keypad map[rune]Pair, start Pair, n int) string {
+func cached_recursive_robot_move(line []byte, n int, m *map[CacheEntry]int) int {
 	if n == 0 {
-		return line
+		return len(line)
 	}
 
-	move_next := to_directions(move_on_keypad(line, keypad, Pair{X: 3, Y: 1}))
-	return recursive_move_on_keypad(move_next, keypad, start, n-1)
+	cache_key := CacheEntry{n: n, line: string(line)}
+	cached_entry := (*m)[cache_key]
+
+	if cached_entry != 0 {
+		return cached_entry
+	}
+
+	move_next := move_on_keypad(line, DIRECTIONAL_KEYPAD)
+
+	sum := 0
+	for _, next := range move_next {
+		sum += cached_recursive_robot_move(next, n-1, m)
+	}
+	(*m)[cache_key] = sum
+	return sum
 }
 
 func calc_complexity(input string, robot_count int) int {
-	keypad := map[rune]Pair{
-		'7': {X: 1, Y: 1},
-		'8': {X: 2, Y: 1},
-		'9': {X: 3, Y: 1},
-		'4': {X: 1, Y: 2},
-		'5': {X: 2, Y: 2},
-		'6': {X: 3, Y: 2},
-		'1': {X: 1, Y: 3},
-		'2': {X: 2, Y: 3},
-		'3': {X: 3, Y: 3},
-		'!': {X: 1, Y: 4},
-		'0': {X: 2, Y: 4},
-		'A': {X: 3, Y: 4},
-	}
-
-	keypad_2 := map[rune]Pair{
-		'!': {X: 1, Y: 1},
-		'^': {X: 2, Y: 1},
-		'A': {X: 3, Y: 1},
-		'<': {X: 1, Y: 2},
-		'v': {X: 2, Y: 2},
-		'>': {X: 3, Y: 2},
-	}
-
 	eval := 0
+	m := make(map[CacheEntry]int)
+
 	for _, line := range strings.Split(input, "\n") {
-		moves_1 := to_directions(move_on_keypad(line, keypad, Pair{X: 3, Y: 4}))
+		moves := move_on_keypad([]byte(line), NUMERIC_KEYPAD)
+		moves_sum := 0
 
-		robot_move := recursive_move_on_keypad(moves_1, keypad_2, Pair{X: 3, Y: 1}, robot_count)
+		for _, move := range moves {
+			moves_sum += cached_recursive_robot_move(move, robot_count, &m)
+		}
 
-		eval += len(robot_move) * to_int(line[0:len(line)-1])
+		eval += moves_sum * to_int(line[0:len(line)-1])
 	}
+
 	return eval
 }
 
@@ -158,5 +171,5 @@ func main() {
 	check(err)
 
 	fmt.Print("part 1 - ", calc_complexity(string(input), 2), "\n")
-	fmt.Print("part 2 - ", calc_complexity(string(input), 19), "\n")
+	fmt.Print("part 2 - ", calc_complexity(string(input), 25), "\n")
 }
