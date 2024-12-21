@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -11,11 +10,6 @@ import (
 type Pair struct {
 	X int
 	Y int
-}
-
-type Key struct {
-	C Pair
-	T rune
 }
 
 type Move struct {
@@ -47,51 +41,32 @@ func abs(x int) int {
 	return x
 }
 
-// func absmin(items []int) int {
-// 	curr_min := 100000
-// 	for _, item := range items {
-// 		if abs(item) < abs(curr_min) {
-// 			curr_min = item
-// 		}
-// 	}
-// 	return curr_min
-// }
-
-func move_on_keypad(line string, keypad []Key, start Pair) []Move {
+func move_on_keypad(line string, keypad map[rune]Pair, start Pair) []Move {
 	current := start
 	moves := []Move{}
 	for _, item := range line {
-		next := slices.IndexFunc(keypad, func(c Key) bool { return c.T == item })
-		avoid := slices.IndexFunc(keypad, func(c Key) bool { return c.T == '!' })
-		x := current.X - keypad[next].C.X
-		y := current.Y - keypad[next].C.Y
+		x := current.X - keypad[item].X
+		y := current.Y - keypad[item].Y
 		diff := Pair{X: -x, Y: -y}
 
 		x_first := add(current, Pair{X: -x, Y: 0})
 		y_first := add(current, Pair{X: 0, Y: -y})
 
-		moves = append(moves, Move{Diff: diff, CanX: keypad[avoid].C != x_first, CanY: keypad[avoid].C != y_first})
+		moves = append(moves, Move{Diff: diff, CanX: keypad['!'] != x_first, CanY: keypad['!'] != y_first})
 		current = add(current, diff)
 	}
 	return moves
 }
 
-func to_directions(directions []Move) []string {
-	results := []string{""}
+func to_directions(directions []Move) string {
+	results := []byte{}
 	for _, direction := range directions {
-		new_results := make([]string, 0)
-
-		for _, d := range combine(direction) {
-			for _, res := range results {
-				new_results = append(new_results, res+d)
-			}
-		}
-		results = new_results
+		results = append(results, combine(direction)...)
 	}
-	return results
+	return string(results)
 }
 
-func combine(p Move) []string {
+func combine(p Move) string {
 	x_sign := ""
 	y_sign := ""
 
@@ -112,58 +87,76 @@ func combine(p Move) []string {
 	s2 := strings.Repeat(y_sign, abs(p.Diff.Y)) + strings.Repeat(x_sign, abs(p.Diff.X)) + "A"
 
 	if !p.CanX {
-		return []string{s2}
+		return s2
 	}
 
 	if !p.CanY {
-		return []string{s1}
+		return s1
 	}
 
 	if s1 != s2 {
-		return []string{s1, s2}
+		if p.Diff.X < 0 {
+			return s1
+		}
+
+		if p.Diff.Y < 0 {
+			return s2
+		}
+
+		return s2
 	}
-	return []string{s1}
+	return s1
+}
+
+func recursive_move_on_keypad(line string, keypad map[rune]Pair, start Pair, n int) string {
+	if n == 0 {
+		return line
+	}
+
+	move_next := to_directions(move_on_keypad(line, keypad, Pair{X: 3, Y: 1}))
+	return recursive_move_on_keypad(move_next, keypad, start, n-1)
+}
+
+func calc_complexity(input string, robot_count int) int {
+	keypad := map[rune]Pair{
+		'7': {X: 1, Y: 1},
+		'8': {X: 2, Y: 1},
+		'9': {X: 3, Y: 1},
+		'4': {X: 1, Y: 2},
+		'5': {X: 2, Y: 2},
+		'6': {X: 3, Y: 2},
+		'1': {X: 1, Y: 3},
+		'2': {X: 2, Y: 3},
+		'3': {X: 3, Y: 3},
+		'!': {X: 1, Y: 4},
+		'0': {X: 2, Y: 4},
+		'A': {X: 3, Y: 4},
+	}
+
+	keypad_2 := map[rune]Pair{
+		'!': {X: 1, Y: 1},
+		'^': {X: 2, Y: 1},
+		'A': {X: 3, Y: 1},
+		'<': {X: 1, Y: 2},
+		'v': {X: 2, Y: 2},
+		'>': {X: 3, Y: 2},
+	}
+
+	eval := 0
+	for _, line := range strings.Split(input, "\n") {
+		moves_1 := to_directions(move_on_keypad(line, keypad, Pair{X: 3, Y: 4}))
+
+		robot_move := recursive_move_on_keypad(moves_1, keypad_2, Pair{X: 3, Y: 1}, robot_count)
+
+		eval += len(robot_move) * to_int(line[0:len(line)-1])
+	}
+	return eval
 }
 
 func main() {
 	input, err := os.ReadFile("input.txt")
 	check(err)
 
-	keypad := []Key{
-		{C: Pair{X: 1, Y: 1}, T: '7'}, {C: Pair{X: 2, Y: 1}, T: '8'}, {C: Pair{X: 3, Y: 1}, T: '9'},
-		{C: Pair{X: 1, Y: 2}, T: '4'}, {C: Pair{X: 2, Y: 2}, T: '5'}, {C: Pair{X: 3, Y: 2}, T: '6'},
-		{C: Pair{X: 1, Y: 3}, T: '1'}, {C: Pair{X: 2, Y: 3}, T: '2'}, {C: Pair{X: 3, Y: 3}, T: '3'},
-		{C: Pair{X: 1, Y: 4}, T: '!'}, {C: Pair{X: 2, Y: 4}, T: '0'}, {C: Pair{X: 3, Y: 4}, T: 'A'},
-	}
-
-	keypad_2 := []Key{
-		{C: Pair{X: 1, Y: 1}, T: '!'}, {C: Pair{X: 2, Y: 1}, T: '^'}, {C: Pair{X: 3, Y: 1}, T: 'A'},
-		{C: Pair{X: 1, Y: 2}, T: '<'}, {C: Pair{X: 2, Y: 2}, T: 'v'}, {C: Pair{X: 3, Y: 2}, T: '>'},
-	}
-
-	eval := 0
-	for _, line := range strings.Split(string(input), "\n") {
-		fmt.Print(line, " -- ")
-
-		moves_1 := to_directions(move_on_keypad(line, keypad, Pair{X: 3, Y: 4}))
-
-		min_len := 10000000
-		for _, move_1 := range moves_1 {
-			moves_2 := to_directions(move_on_keypad(move_1, keypad_2, Pair{X: 3, Y: 1}))
-			for _, move_2 := range moves_2 {
-				moves_3 := to_directions(move_on_keypad(move_2, keypad_2, Pair{X: 3, Y: 1}))
-				for _, move_3 := range moves_3 {
-					if len(move_3) < min_len {
-						min_len = len(move_3)
-					}
-				}
-			}
-		}
-
-		fmt.Print(min_len)
-		eval += min_len * to_int(line[0:len(line)-1])
-		fmt.Print("\n")
-	}
-
-	fmt.Print("part 1 - ", eval, "\n")
+	fmt.Print("part 1 - ", calc_complexity(string(input), 2), "\n")
+	fmt.Print("part 2 - ", calc_complexity(string(input), 19), "\n")
 }
