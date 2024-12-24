@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 )
@@ -80,14 +81,6 @@ func check(e error) {
 	}
 }
 
-func format_bit(b bool) int {
-	if b {
-		return 1
-	} else {
-		return 0
-	}
-}
-
 func pad(value int) string {
 	return fmt.Sprintf("%02d", value)
 }
@@ -100,11 +93,7 @@ func get_correct_symbolic_eval(n int) []string {
 		result = append(result, "x00", "y00")
 	}
 
-	if n == 1 {
-		result = append(result, "AND", "x00", "y00", "XOR", "x01", "y01")
-	}
-
-	if n > 1 {
+	if n > 0 {
 		for i := 1; i < n; i++ {
 			result = append(result, "OR", "AND")
 		}
@@ -117,6 +106,15 @@ func get_correct_symbolic_eval(n int) []string {
 	return result
 }
 
+func find_item_by_symbolic_eval(assignments map[string]item, all_bits []string, search []string) string {
+	for _, bit := range all_bits {
+		if reflect.DeepEqual(assignments[bit].symbolic_eval(assignments), search) {
+			return bit
+		}
+	}
+	panic("Not found.")
+}
+
 func main() {
 	input, err := os.ReadFile("input.txt")
 	check(err)
@@ -125,7 +123,7 @@ func main() {
 
 	assignments := make(map[string]item)
 	result_bits := make([]string, 0)
-	// all_bits := make([]string, 0)
+	all_bits := make([]string, 0)
 	blocks := strings.Split(string(input), "\n\n")
 	for _, line := range strings.Split(blocks[0], "\n") {
 		items := strings.Split(line, ": ")
@@ -136,7 +134,7 @@ func main() {
 		items := strings.Split(line, " ")
 		assignments[items[4]] = equation{a: items[0], b: items[2], op: items[1]}
 
-		// all_bits = append(all_bits, items[4])
+		all_bits = append(all_bits, items[4])
 		if strings.HasPrefix(items[4], "z") {
 			result_bits = append(result_bits, items[4])
 		}
@@ -149,53 +147,54 @@ func main() {
 	total := 0
 	for i, bit := range result_bits {
 		result_bit := assignments[bit].eval(assignments)
-		fmt.Print(format_bit(result_bit))
 		if result_bit {
 			total += int_pow(2, i)
 		}
 	}
 
-	fmt.Print("\n")
-
 	fmt.Print("part 1 - ", total, "\n")
 
 	// Part 2
+	pairs := [][]string{}
 
-	// Found them after a bit of analysis (comparing to symbolic eval)
-	// TODO: Make a general solution
-	pairs := [][]string{{"qjb", "gvw"}, {"z15", "jgc"}, {"drg", "z22"}, {"z35", "jbp"}}
+	for i, bit := range result_bits {
+		if i == len(result_bits)-1 {
+			// Let's hope that the last bit is calculated correctly
+			// Since `symbolic_eval` does not work for last bit
+			continue
+		}
 
-	for _, pair := range pairs {
-		assignments[pair[0]], assignments[pair[1]] = assignments[pair[1]], assignments[pair[0]]
+		symbolic_eval := assignments[bit].symbolic_eval(assignments)
+		correct_symbolic_eval := get_correct_symbolic_eval(i)
+
+		if !reflect.DeepEqual(symbolic_eval, correct_symbolic_eval) {
+			// These are two cases i had in my input.
+			// I'm not sure what are all the general cases that can be wrong.
+			if len(symbolic_eval) == len(correct_symbolic_eval) {
+				for i := range symbolic_eval {
+					if symbolic_eval[i] != correct_symbolic_eval[i] {
+						part1 := find_item_by_symbolic_eval(assignments, all_bits, symbolic_eval[i:])
+						part2 := find_item_by_symbolic_eval(assignments, all_bits, correct_symbolic_eval[i:])
+
+						assignments[part1], assignments[part2] = assignments[part2], assignments[part1]
+						pairs = append(pairs, []string{part1, part2})
+					}
+				}
+			} else {
+				part1 := bit
+				var part2 string
+				for _, swap_bit := range all_bits {
+					if reflect.DeepEqual(assignments[swap_bit].symbolic_eval(assignments), correct_symbolic_eval) {
+						part2 = swap_bit
+					}
+				}
+
+				assignments[part1], assignments[part2] = assignments[part2], assignments[part1]
+				pairs = append(pairs, []string{part1, part2})
+			}
+		}
+
 	}
-
-	// assignments["qjb"], assignments["gvw"] = assignments["gvw"], assignments["qjb"]
-	// assignments["z15"], assignments["jgc"] = assignments["jgc"], assignments["z15"]
-	// assignments["drg"], assignments["z22"] = assignments["z22"], assignments["drg"]
-	// assignments["z35"], assignments["jbp"] = assignments["jbp"], assignments["z35"]
-
-	// for i := 0; i < 45; i++ {
-	// 	desired_sym_eval := get_correct_symbolic_eval(i)
-	// 	for _, bit := range all_bits {
-	// 		if reflect.DeepEqual(assignments[bit].symbolic_eval(assignments), desired_sym_eval) {
-	// 			fmt.Print(i, bit, "\n")
-	// 		}
-	// 	}
-	// }
-
-	// for i, bit := range result_bits {
-	// 	symbolic_eval := assignments[bit].symbolic_eval(assignments)
-	// 	correct_symbolic_eval := get_correct_symbolic_eval(i)
-
-	// 	if !reflect.DeepEqual(symbolic_eval, correct_symbolic_eval) {
-	// 		fmt.Print(bit, " -- ", symbolic_eval)
-	// 		fmt.Print("\n")
-
-	// 		fmt.Print(bit, " -- ", correct_symbolic_eval)
-	// 		fmt.Print("\n")
-	// 	}
-
-	// }
 
 	pairs_slice := make([]string, 0)
 	for _, pair := range pairs {
